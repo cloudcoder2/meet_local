@@ -1,5 +1,8 @@
+import type { DispatchHub } from "./do/dispatch";
+
 export interface Env {
   DB: D1Database;
+  DISPATCH: DurableObjectNamespace<DispatchHub>;
   KV: KVNamespace;
   MEDIA: R2Bucket;
   JWT_SECRET: string;

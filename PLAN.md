@@ -35,7 +35,7 @@ Flutter app (rider + driver)                Cloudflare
   last location. When a ride is requested, it ranks nearby drivers of the requested
   vehicle class by distance and offers the ride one driver at a time (15 s timeout,
   then next driver). Driver WebSocket connections receive offers in real time.
-- **Ride lifecycle:** `requested → accepted → arriving → in_progress → completed`,
+- **Ride lifecycle:** `requested → accepted → arrived → in_progress → completed`,
   with `cancelled` / `no_driver` exits. Every transition is validated server-side and
   logged to `ride_events`.
 - **Realtime:** `RideRoom` Durable Object per ride. Rider and driver connect by
@@ -66,7 +66,7 @@ Each phase ends with tests passing and a commit pushed.
   `@cloudflare/vitest-pool-workers`.
 - [x] **Phase 2: drivers and pricing.** Driver onboarding and vehicles, fare estimate
   endpoint, pricing config per vehicle class, promo codes.
-- [ ] **Phase 3: rides and dispatch.** Ride request/cancel, `DispatchHub` Durable
+- [x] **Phase 3: rides and dispatch.** Ride request/cancel, `DispatchHub` Durable
   Object (presence, matching, offers, timeouts), driver accept/decline, lifecycle
   transitions, ride history.
 - [ ] **Phase 4: realtime.** `RideRoom` Durable Object WebSockets (live location,

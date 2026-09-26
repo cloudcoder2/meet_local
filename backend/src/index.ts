@@ -6,6 +6,7 @@ import { admin } from "./routes/admin";
 import { auth } from "./routes/auth";
 import { drivers } from "./routes/drivers";
 import { fares } from "./routes/fares";
+import { rides } from "./routes/rides";
 import { users } from "./routes/users";
 
 const app = new Hono<AppEnv>();
@@ -19,6 +20,8 @@ app.route("/v1/auth", auth);
 app.route("/v1", users);
 app.route("/v1", fares);
 app.route("/v1/drivers", drivers);
+app.route("/v1/rides", rides);
 app.route("/v1/admin", admin);
 
+export { DispatchHub } from "./do/dispatch";
 export default app;

@@ -23,6 +23,10 @@
   "kv_namespaces": [
     { "binding": "KV", "id": "00000000000000000000000000000000" }
   ],
+  "durable_objects": {
+    "bindings": [{ "name": "DISPATCH", "class_name": "DispatchHub" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DispatchHub"] }],
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "cholo-media" }
   ]

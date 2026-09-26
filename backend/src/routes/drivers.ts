@@ -2,9 +2,12 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../env";
 import { issueTokens, requireAuth } from "../lib/auth";
-import { conflict, forbidden, notFound } from "../lib/errors";
-import { CITIES } from "../lib/geo";
-import { vehicleSchema } from "../lib/schemas";
+import { dispatchHub, type Offer } from "../do/dispatch";
+import { ApiError, conflict, forbidden, notFound } from "../lib/errors";
+import { CITIES, cityFor } from "../lib/geo";
+import { splitFare } from "../lib/pricing";
+import { activeRideFor, type RideRow } from "../lib/rides";
+import { latLngSchema, vehicleSchema } from "../lib/schemas";
 import { getUser, serializeUser } from "../lib/users";
 import { newId, now, parseJson } from "../lib/util";
 
@@ -148,4 +151,100 @@ drivers.post("/me/vehicles/:id/activate", async (c) => {
   ]);
   const driver = (await getDriver(c.env.DB, driverId))!;
   return c.json({ driver: await driverProfile(c.env.DB, driver) });
+});
+
+// ---- presence and offers ------------------------------------------------------
+
+const locationSchema = latLngSchema.extend({ heading: z.number().min(0).max(360).nullable().optional() });
+
+async function requireApprovedDriver(db: D1Database, userId: string) {
+  const driver = await getDriver(db, userId);
+  if (!driver) throw notFound("You are not registered as a driver");
+  if (driver.status !== "approved") throw forbidden(driver.status === "pending" ? "Your driver account is awaiting approval" : "Your driver account is suspended");
+  return driver;
+}
+
+drivers.post("/me/online", async (c) => {
+  const loc = await parseJson(c, locationSchema);
+  const driverId = c.get("user").id;
+  const driver = await requireApprovedDriver(c.env.DB, driverId);
+  const vehicle = await getActiveVehicle(c.env.DB, driverId);
+  if (!vehicle) throw forbidden("Activate a vehicle first");
+  if (cityFor(loc)?.id !== driver.city) throw new ApiError(422, "out_of_service_area", `You can only go online inside ${driver.city}`);
+  const active = await activeRideFor(c.env.DB, driverId);
+  await dispatchHub(c.env, driver.city).goOnline({
+    driverId,
+    vehicleId: vehicle.id,
+    vehicleClass: vehicle.vehicle_class,
+    lat: loc.lat,
+    lng: loc.lng,
+    heading: loc.heading,
+    rideId: active?.driver_id === driverId ? active.id : null,
+  });
+  return c.json({ online: true });
+});
+
+drivers.post("/me/offline", async (c) => {
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const res = await dispatchHub(c.env, driver.city).goOffline(driver.user_id);
+  if (!res.ok) throw conflict("Finish your current trip before going offline", "on_trip");
+  return c.json({ online: false });
+});
+
+drivers.post("/me/location", async (c) => {
+  const loc = await parseJson(c, locationSchema);
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const ok = await dispatchHub(c.env, driver.city).updateLocation(driver.user_id, loc);
+  if (!ok) throw conflict("You are offline; go online first", "offline");
+  return c.json({ ok: true });
+});
+
+drivers.get("/me/status", async (c) => {
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const presence = await dispatchHub(c.env, driver.city).getPresence(driver.user_id);
+  return c.json({ online: !!presence, ride_id: presence?.rideId ?? null, location: presence ? { lat: presence.lat, lng: presence.lng } : null });
+});
+
+/** The ride currently offered to this driver, with what they need to decide. */
+drivers.get("/me/offer", async (c) => {
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const offer = await dispatchHub(c.env, driver.city).currentOffer(driver.user_id);
+  if (!offer) return c.json({ offer: null });
+  return c.json({ offer: await offerDetails(c.env.DB, offer, c.env.CURRENCY) });
+});
+
+export async function offerDetails(db: D1Database, offer: Offer, currency: string) {
+  const ride = await db
+    .prepare(
+      `SELECT r.*, u.name AS rider_name, u.rating_sum, u.rating_count FROM rides r JOIN users u ON u.id = r.rider_id WHERE r.id = ?`,
+    )
+    .bind(offer.rideId)
+    .first<RideRow & { rider_name: string | null; rating_sum: number; rating_count: number }>();
+  if (!ride) return null;
+  return {
+    ride_id: ride.id,
+    expires_at: offer.expiresAt,
+    pickup_distance_m: offer.pickupDistanceM,
+    vehicle_class: ride.vehicle_class,
+    pickup: { lat: ride.pickup_lat, lng: ride.pickup_lng, address: ride.pickup_address },
+    dropoff: { lat: ride.dropoff_lat, lng: ride.dropoff_lng, address: ride.dropoff_address },
+    distance_m: ride.distance_m,
+    duration_s: ride.duration_s,
+    total: ride.estimated_fare - ride.discount,
+    driver_earnings: splitFare(ride.estimated_fare - ride.discount).driverNet,
+    currency,
+    payment_method: ride.payment_method,
+    rider: {
+      name: ride.rider_name,
+      rating: ride.rating_count ? Math.round((ride.rating_sum / ride.rating_count) * 100) / 100 : null,
+    },
+  };
+}
+
+/** Free drivers near a point, for the rider's home map. */
+drivers.get("/nearby", async (c) => {
+  const q = latLngSchema.parse({ lat: Number(c.req.query("lat")), lng: Number(c.req.query("lng")) });
+  const city = cityFor(q);
+  if (!city) return c.json({ drivers: [] });
+  return c.json({ drivers: await dispatchHub(c.env, city.id).nearby(q) });
 });

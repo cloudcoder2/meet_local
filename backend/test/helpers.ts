@@ -1,4 +1,5 @@
-import { exports } from "cloudflare:workers";
+import { runInDurableObject } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 
 export interface ApiResult<T = any> {
   status: number;
@@ -31,7 +32,10 @@ export async function login(phone?: string) {
 
 export const ADMIN_PHONE = "+8801900000000";
 
-export const loginAdmin = () => login(ADMIN_PHONE);
+let adminSession: Promise<Awaited<ReturnType<typeof login>>> | undefined;
+
+/** Logs in the admin once per test file; logging in repeatedly would trip the OTP rate limit. */
+export const loginAdmin = () => (adminSession ??= login(ADMIN_PHONE));
 
 let plateCounter = 0;
 
@@ -53,4 +57,44 @@ export async function makeDriver(vehicleClass: "bike" | "cng" | "car" = "car", n
   const adminSession = await loginAdmin();
   await api("PATCH", `/v1/admin/drivers/${session.user.id}`, { token: adminSession.token, body: { status: "approved" } });
   return { ...session, token: reg.body.access_token as string, user: reg.body.user, vehicle: reg.body.driver.vehicles[0] };
+}
+
+export function hub(city = "dhaka") {
+  return env.DISPATCH.get(env.DISPATCH.idFromName(city));
+}
+
+// runInDurableObject's generics recurse too deeply on the RPC stub type.
+const runInHub = runInDurableObject as unknown as (
+  stub: unknown,
+  fn: (instance: any, state: DurableObjectState) => Promise<void>,
+) => Promise<void>;
+
+/** Clears all dispatch state so tests don't see each other's drivers and searches. */
+export async function resetHub(city = "dhaka") {
+  await runInHub(hub(city), async (instance, state) => {
+    instance.drivers.clear();
+    instance.searches.clear();
+    await state.storage.deleteAlarm();
+    await state.storage.deleteAll();
+  });
+}
+
+/** Moves a hub's clock-based state into the past so the next alarm treats it as expired. */
+export async function ageHub(ms: number, city = "dhaka") {
+  await runInHub(hub(city), async (instance) => {
+    for (const s of instance.searches.values()) {
+      s.startedAt -= ms;
+      s.nextAttemptAt -= ms;
+      if (s.offer) s.offer.expiresAt -= ms;
+    }
+  });
+}
+
+export const place = (p: { lat: number; lng: number }, address: string) => ({ ...p, address });
+
+export async function requestRide(token: string, vehicleClass: "bike" | "cng" | "car" = "car") {
+  return api("POST", "/v1/rides", {
+    token,
+    body: { pickup: place(GULSHAN, "Gulshan 1, Dhaka"), dropoff: place(DHANMONDI, "Dhanmondi 27, Dhaka"), vehicle_class: vehicleClass },
+  });
 }

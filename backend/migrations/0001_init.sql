@@ -47,7 +47,7 @@ CREATE TABLE rides (
   vehicle_class    TEXT NOT NULL CHECK (vehicle_class IN ('bike', 'cng', 'car')),
   city             TEXT NOT NULL,
   status           TEXT NOT NULL CHECK (status IN (
-                     'requested', 'accepted', 'arriving', 'in_progress',
+                     'requested', 'accepted', 'arrived', 'in_progress',
                      'completed', 'cancelled', 'no_driver')),
   pickup_lat       REAL NOT NULL,
   pickup_lng       REAL NOT NULL,
