@@ -74,7 +74,7 @@ Each phase ends with tests passing and a commit pushed.
   driver earnings.
 - [x] **Phase 5: Flutter foundation.** Project, theme and branding, API client,
   auth flow (phone + OTP), secure token storage, router, profile.
-- [ ] **Phase 6: Flutter rider flow.** Map home, place selection, fare estimates,
+- [x] **Phase 6: Flutter rider flow.** Map home, place selection, fare estimates,
   request and searching, live tracking over WebSocket, trip completion, rating, history.
 - [ ] **Phase 7: Flutter driver flow.** Onboarding, online toggle with location
   streaming, offer dialog, trip controls, earnings.

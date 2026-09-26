@@ -9,7 +9,14 @@ import 'features/auth/otp_screen.dart';
 import 'features/auth/phone_screen.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/home/home_screen.dart';
+import 'data/models.dart';
+import 'features/booking/book_screen.dart';
+import 'features/places/map_picker_screen.dart';
+import 'features/places/place_search_screen.dart';
+import 'features/places/saved_places_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/ride/ride_screen.dart';
+import 'features/trips/trips_screen.dart';
 
 /// Decides where a user may go based on their auth state; null means "stay".
 @visibleForTesting
@@ -41,6 +48,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/welcome', builder: (_, _) => const NameScreen()),
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(path: '/search', builder: (_, s) => PlaceSearchScreen(initialDropoff: s.extra as Place?)),
+      GoRoute(path: '/pick', builder: (_, s) => MapPickerScreen(start: s.extra as LatLngPoint?)),
+      GoRoute(path: '/book', builder: (_, s) => BookScreen(trip: s.extra! as Trip)),
+      GoRoute(path: '/ride', builder: (_, _) => const RideScreen()),
+      GoRoute(path: '/trips', builder: (_, _) => const TripsScreen()),
+      GoRoute(path: '/places', builder: (_, _) => const SavedPlacesScreen()),
     ],
   );
 });

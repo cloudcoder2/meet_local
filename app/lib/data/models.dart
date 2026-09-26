@@ -447,3 +447,41 @@ class NearbyDriver {
         vehicleClass: VehicleClass.parse(j['vehicle_class'] as String),
       );
 }
+
+class GeoResult {
+  const GeoResult({required this.name, required this.address, required this.lat, required this.lng});
+  final String name;
+  final String address;
+  final double lat;
+  final double lng;
+
+  Place toPlace() => Place(lat: lat, lng: lng, address: address.isEmpty ? name : address, label: name);
+
+  factory GeoResult.fromJson(Json j) => GeoResult(
+        name: j['name'] as String? ?? '',
+        address: j['address'] as String? ?? '',
+        lat: _double(j['lat']),
+        lng: _double(j['lng']),
+      );
+}
+
+class ChatMessage {
+  const ChatMessage({required this.id, required this.from, required this.text, required this.at});
+  final String id;
+  final String from;
+  final String text;
+  final int at;
+
+  factory ChatMessage.fromJson(Json j) =>
+      ChatMessage(id: j['id'] as String, from: j['from'] as String, text: j['text'] as String, at: _int(j['at']));
+}
+
+class DriverLocation {
+  const DriverLocation({required this.lat, required this.lng, this.heading});
+  final double lat;
+  final double lng;
+  final double? heading;
+
+  factory DriverLocation.fromJson(Json j) =>
+      DriverLocation(lat: _double(j['lat']), lng: _double(j['lng']), heading: (j['heading'] as num?)?.toDouble());
+}

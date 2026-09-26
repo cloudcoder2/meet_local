@@ -168,5 +168,15 @@ class CholoApi {
 
   Future<Earnings> earnings() async => Earnings.fromJson(await client.get('/v1/drivers/me/earnings'));
 
+  // ---- places -----------------------------------------------------------------
+
+  Future<List<GeoResult>> searchPlaces(String query, {LatLngPoint? near}) async {
+    final j = await client.get('/v1/geo/search', query: {'q': query, 'lat': ?near?.lat, 'lng': ?near?.lng});
+    return [for (final r in j['results'] as List) GeoResult.fromJson(r as Json)];
+  }
+
+  Future<GeoResult> reverseGeocode(LatLngPoint p) async =>
+      GeoResult.fromJson((await client.get('/v1/geo/reverse', query: {'lat': p.lat, 'lng': p.lng}))['result'] as Json);
+
   Ride _ride(Json j) => Ride.fromJson(j['ride'] as Json);
 }
