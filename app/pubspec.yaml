@@ -26,6 +26,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   mocktail: ^1.0.5
+  stream_channel: ^2.1.4
+  async: ^2.13.1
 
 flutter:
   uses-material-design: true

@@ -13,12 +13,15 @@ typedef ChannelFactory = WebSocketChannel Function(Uri uri);
 /// Used for the ride room (`/v1/rides/:id/ws`) and the driver dispatch socket
 /// (`/v1/drivers/me/ws`).
 class LiveSocket {
-  LiveSocket({required this.path, required this.tokens, ChannelFactory? connect, String? baseUrl})
+  LiveSocket({required this.path, required this.tokens, this.beforeConnect, ChannelFactory? connect, String? baseUrl})
       : _connect = connect ?? WebSocketChannel.connect,
         _baseUrl = baseUrl ?? AppConfig.wsUrl;
 
   final String path;
   final TokenStore tokens;
+
+  /// Runs before every (re)connect, e.g. to refresh an expiring access token.
+  final Future<void> Function()? beforeConnect;
   final ChannelFactory _connect;
   final String _baseUrl;
 
@@ -34,6 +37,11 @@ class LiveSocket {
 
   Future<void> open() async {
     if (_closed) return;
+    try {
+      await beforeConnect?.call();
+    } catch (_) {
+      // Try with the token we have; a rejected upgrade leads to a retry.
+    }
     final t = await tokens.read();
     if (t == null || _closed) return;
     final uri = Uri.parse('$_baseUrl$path?token=${Uri.encodeQueryComponent(t.access)}');

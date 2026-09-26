@@ -64,14 +64,14 @@ export function hub(city = "dhaka") {
 }
 
 // runInDurableObject's generics recurse too deeply on the RPC stub type.
-const runInHub = runInDurableObject as unknown as (
+const runInDO = runInDurableObject as unknown as (
   stub: unknown,
   fn: (instance: any, state: DurableObjectState) => Promise<void>,
 ) => Promise<void>;
 
 /** Clears all dispatch state so tests don't see each other's drivers and searches. */
 export async function resetHub(city = "dhaka") {
-  await runInHub(hub(city), async (instance, state) => {
+  await runInDO(hub(city), async (instance, state) => {
     instance.drivers.clear();
     instance.searches.clear();
     await state.storage.deleteAlarm();
@@ -81,7 +81,7 @@ export async function resetHub(city = "dhaka") {
 
 /** Moves a hub's clock-based state into the past so the next alarm treats it as expired. */
 export async function ageHub(ms: number, city = "dhaka") {
-  await runInHub(hub(city), async (instance) => {
+  await runInDO(hub(city), async (instance) => {
     for (const s of instance.searches.values()) {
       s.startedAt -= ms;
       s.nextAttemptAt -= ms;
@@ -134,3 +134,6 @@ export async function connect(path: string, token: string) {
     },
   };
 }
+
+/** Runs `fn` against the city's DispatchHub instance. */
+export const runInHub = (fn: (instance: any) => Promise<void> | void, city = "dhaka") => runInDO(hub(city), async (i) => fn(i));

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { api, connect, GULSHAN, login, makeDriver, requestRide, resetHub } from "./helpers";
+import { api, connect, GULSHAN, login, makeDriver, requestRide, resetHub, runInHub } from "./helpers";
 
 const near = (dLat: number) => ({ lat: GULSHAN.lat + dLat, lng: GULSHAN.lng });
 
@@ -124,5 +124,25 @@ describe("completion, payment and ratings", () => {
     expect((await room.next("ride_updated")).status).toBe("cancelled");
     await new Promise((r) => setTimeout(r, 50));
     expect(room.closed).toBe(true);
+  });
+});
+
+describe("presence heartbeat", () => {
+  it("keeps a parked driver matchable while their dispatch socket pings", async () => {
+    const driver = await makeDriver("bike");
+    await api("POST", "/v1/drivers/me/online", { token: driver.token, body: near(0.001) });
+    const dispatch = await connect("/v1/drivers/me/ws", driver.token);
+    await dispatch.next("status");
+
+    // Three minutes pass without movement: presence alone would have expired.
+    await runInHub(async (instance) => {
+      for (const d of instance.drivers.values()) d.updatedAt -= 180_000;
+    });
+    dispatch.send({ type: "ping" });
+    await dispatch.next("pong");
+
+    const rider = await login();
+    const rideId = (await requestRide(rider.token, "bike")).body.ride.id;
+    expect((await dispatch.next("offer")).offer.rideId).toBe(rideId);
   });
 });

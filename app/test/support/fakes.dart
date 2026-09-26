@@ -29,6 +29,9 @@ class FakeSocket implements LiveSocket {
   TokenStore get tokens => MemoryTokenStore();
 
   @override
+  Future<void> Function()? get beforeConnect => null;
+
+  @override
   Stream<Json> get messages => _controller.stream;
 
   void emit(Json msg) => _controller.add(msg);

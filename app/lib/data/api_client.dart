@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
@@ -84,6 +85,15 @@ class ApiClient {
   /// Refresh calls bypass the queued interceptor, which is blocked while it waits on them.
   late final Dio _refreshDio = Dio(dio.options.copyWith())..httpClientAdapter = dio.httpClientAdapter;
 
+  /// Refreshes the access token if it expires within [margin]; used before
+  /// opening WebSockets, which can't go through the 401 retry above.
+  Future<void> ensureFreshToken({Duration margin = const Duration(seconds: 60)}) async {
+    final t = await tokens.read();
+    if (t == null) return;
+    final exp = accessTokenExpiry(t.access);
+    if (exp == null || exp.isBefore(DateTime.now().add(margin))) await _refresh();
+  }
+
   Future<bool> _refresh() async {
     final t = await tokens.read();
     if (t == null) return false;
@@ -115,5 +125,16 @@ class ApiClient {
     } catch (e) {
       throw ApiException.from(e);
     }
+  }
+}
+
+/// Reads the `exp` claim of a JWT without verifying it; null if unreadable.
+DateTime? accessTokenExpiry(String jwt) {
+  try {
+    final payload = jwt.split('.')[1];
+    final json = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(payload)))) as Map;
+    return DateTime.fromMillisecondsSinceEpoch((json['exp'] as num).toInt() * 1000);
+  } catch (_) {
+    return null;
   }
 }

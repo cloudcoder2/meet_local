@@ -292,7 +292,13 @@ export class DispatchHub extends DurableObject<Env> {
     } catch {
       return this.sendTo(ws, { type: "error", message: "Invalid JSON" });
     }
-    if (msg.type === "ping") return this.sendTo(ws, { type: "pong" });
+    if (msg.type === "ping") {
+      // A parked driver sends no location (the app only reports movement), so the
+      // socket heartbeat is what keeps them matchable.
+      const d = this.drivers.get(driverId);
+      if (d) d.updatedAt = Date.now();
+      return this.sendTo(ws, { type: "pong" });
+    }
     if (msg.type !== "location") return this.sendTo(ws, { type: "error", message: "Unknown message type" });
     const { lat, lng, heading } = msg;
     if (typeof lat !== "number" || typeof lng !== "number" || Math.abs(lat) > 90 || Math.abs(lng) > 180) {

@@ -9,8 +9,8 @@ import '../../providers.dart';
 
 /// Opens a live socket for an API path; overridden in tests.
 final liveSocketFactoryProvider = Provider<LiveSocket Function(String path)>((ref) {
-  final tokens = ref.watch(tokenStoreProvider);
-  return (path) => LiveSocket(path: path, tokens: tokens);
+  final api = ref.watch(apiProvider);
+  return (path) => LiveSocket(path: path, tokens: api.tokens, beforeConnect: api.client.ensureFreshToken);
 });
 
 class RideSession {
