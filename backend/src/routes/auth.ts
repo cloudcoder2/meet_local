@@ -21,6 +21,13 @@ function requirePhone(input: string) {
 
 export const auth = new Hono<AppEnv>();
 
+// Per-IP limit on top of the per-phone limits below, against number enumeration and SMS pumping.
+auth.use("*", async (c, next) => {
+  const ip = c.req.header("CF-Connecting-IP");
+  if (ip && !(await c.env.AUTH_LIMITER.limit({ key: ip })).success) throw tooMany("Too many attempts. Try again in a minute.");
+  await next();
+});
+
 auth.post("/otp/request", async (c) => {
   const { phone: rawPhone } = await parseJson(c, z.object({ phone: phoneSchema }));
   const phone = requirePhone(rawPhone);

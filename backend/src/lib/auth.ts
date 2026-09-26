@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { sign, verify } from "hono/jwt";
 import type { AppEnv, AuthUser } from "../env";
-import { forbidden, unauthorized } from "./errors";
+import { forbidden, tooMany, unauthorized } from "./errors";
 
 const ACCESS_TTL_S = 60 * 60; // 1 hour
 const REFRESH_TTL_S = 60 * 60 * 24 * 30; // 30 days
@@ -31,7 +31,12 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const header = c.req.header("Authorization");
   const token = header?.startsWith("Bearer ") ? header.slice(7) : c.req.query("token");
   if (!token) throw unauthorized();
-  c.set("user", await verifyToken(token, c.env.JWT_SECRET, "access"));
+  const user = await verifyToken(token, c.env.JWT_SECRET, "access");
+  // WebSocket upgrades are long-lived and carry their own traffic, so they don't count.
+  if (c.req.header("Upgrade") !== "websocket" && !(await c.env.API_LIMITER.limit({ key: user.id })).success) {
+    throw tooMany("Too many requests. Slow down and try again shortly.");
+  }
+  c.set("user", user);
   await next();
 });
 

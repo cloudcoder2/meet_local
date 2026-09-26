@@ -9,6 +9,7 @@ import '../../data/models.dart';
 import '../../providers.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/cholo_map.dart';
+import '../auth/auth_controller.dart';
 import '../places/places_controller.dart';
 import '../ride/ride_controller.dart';
 
@@ -98,7 +99,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    Text('Good to see you', style: theme.textTheme.titleMedium),
+                    Text(_greeting(ref.watch(authProvider).value?.name), style: theme.textTheme.titleMedium),
                     const SizedBox(height: 12),
                     InkWell(
                       key: const Key('where-to'),
@@ -151,6 +152,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
+
+String _greeting(String? name) {
+  final hour = DateTime.now().hour;
+  final part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  final first = (name ?? '').trim().split(' ').first;
+  return first.isEmpty ? part : '$part, $first';
 }
 
 IconData placeIcon(String? label) => switch (label?.toLowerCase()) {

@@ -127,9 +127,11 @@ class _RiderPanel extends ConsumerWidget {
         children.addAll([
           Text(ride.status == RideStatus.noDriver
               ? "We couldn't find a driver nearby. Please try again in a few minutes."
-              : ride.cancelledBy == 'driver'
-                  ? 'Your driver cancelled. You were not charged.'
-                  : 'You cancelled this ride.'),
+              : switch (ride.cancelledBy) {
+                  'driver' => 'Your driver cancelled. You were not charged.',
+                  'system' => 'This ride was cancelled because the pickup timed out. You were not charged.',
+                  _ => 'You cancelled this ride.',
+                }),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () {

@@ -78,9 +78,9 @@ Each phase ends with tests passing and a commit pushed.
   request and searching, live tracking over WebSocket, trip completion, rating, history.
 - [x] **Phase 7: Flutter driver flow.** Onboarding, online toggle with location
   streaming, offer dialog, trip controls, earnings.
-- [ ] **Phase 8: hardening and docs.** Rate limiting, input edge cases, CI workflow
+- [x] **Phase 8: hardening and docs.** Rate limiting, input edge cases, CI workflow
   (backend tests + `flutter analyze` + `flutter test`), deployment guide.
 
 ## Running locally
 
-See `backend/README.md` and `app/README.md` (added in their phases).
+See `backend/README.md` (local dev, deployment, API reference) and `app/README.md`.

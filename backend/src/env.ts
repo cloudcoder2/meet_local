@@ -7,6 +7,10 @@ export interface Env {
   RIDE_ROOM: DurableObjectNamespace<RideRoom>;
   KV: KVNamespace;
   MEDIA: R2Bucket;
+  /** Per-IP limit on login endpoints. */
+  AUTH_LIMITER: RateLimit;
+  /** Per-user limit on authenticated API calls. */
+  API_LIMITER: RateLimit;
   JWT_SECRET: string;
   APP_ENV: string;
   CURRENCY: string;

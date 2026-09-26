@@ -100,8 +100,11 @@ class _CholoMapState extends ConsumerState<CholoMap> {
             Polyline(points: widget.route.map(toLatLng).toList(), strokeWidth: 5, color: CholoColors.green),
           ]),
         MarkerLayer(markers: [for (final pin in widget.pins) _marker(pin)]),
+        // Top-right keeps the required OSM credit clear of the bottom sheets.
         if (tiles)
-          const SimpleAttributionWidget(source: Text('OpenStreetMap contributors')),
+          const SafeArea(
+            child: SimpleAttributionWidget(source: Text('OpenStreetMap contributors'), alignment: Alignment.topRight),
+          ),
       ],
     );
   }
