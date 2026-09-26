@@ -8,7 +8,9 @@
   "vars": {
     "APP_ENV": "dev",
     "CURRENCY": "BDT",
-    "DEFAULT_CITY": "dhaka"
+    "DEFAULT_CITY": "dhaka",
+    "ADMIN_PHONES": "",
+    "DRIVER_AUTO_APPROVE": "true"
   },
   "d1_databases": [
     {

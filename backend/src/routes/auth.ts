@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AppEnv } from "../env";
 import { issueTokens, verifyToken } from "../lib/auth";
 import { ApiError, badRequest, tooMany, unauthorized } from "../lib/errors";
-import { findOrCreateUserByPhone, getUser, serializeUser } from "../lib/users";
+import { findOrCreateUserByPhone, getUser, serializeUser, type UserRow } from "../lib/users";
 import { normalizePhone, parseJson, randomDigits } from "../lib/util";
 
 const OTP_TTL_S = 300;
@@ -52,7 +52,11 @@ auth.post("/otp/verify", async (c) => {
   }
   await c.env.KV.delete(key);
 
-  const { user, isNew } = await findOrCreateUserByPhone(c.env.DB, phone);
+  let { user, isNew } = await findOrCreateUserByPhone(c.env.DB, phone);
+  const adminPhones = (c.env.ADMIN_PHONES ?? "").split(",").map((p) => p.trim());
+  if (adminPhones.includes(phone) && user.role !== "admin") {
+    user = (await c.env.DB.prepare("UPDATE users SET role = 'admin' WHERE id = ? RETURNING *").bind(user.id).first<UserRow>())!;
+  }
   const tokens = await issueTokens({ id: user.id, role: user.role }, c.env.JWT_SECRET);
   return c.json({ ...tokens, is_new_user: isNew, user: serializeUser(user) });
 });

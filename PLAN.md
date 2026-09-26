@@ -64,7 +64,7 @@ Each phase ends with tests passing and a commit pushed.
 - [x] **Phase 1: backend foundation.** Wrangler project, D1 schema and migrations, Hono
   app, JWT auth with phone OTP, user profile endpoints, test setup with
   `@cloudflare/vitest-pool-workers`.
-- [ ] **Phase 2: drivers and pricing.** Driver onboarding and vehicles, fare estimate
+- [x] **Phase 2: drivers and pricing.** Driver onboarding and vehicles, fare estimate
   endpoint, pricing config per vehicle class, promo codes.
 - [ ] **Phase 3: rides and dispatch.** Ride request/cancel, `DispatchHub` Durable
   Object (presence, matching, offers, timeouts), driver accept/decline, lifecycle

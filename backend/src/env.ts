@@ -6,6 +6,10 @@ export interface Env {
   APP_ENV: string;
   CURRENCY: string;
   DEFAULT_CITY: string;
+  /** Comma-separated phone numbers (E.164) that are granted the admin role on login. */
+  ADMIN_PHONES: string;
+  /** "true" to approve new drivers immediately (development only). */
+  DRIVER_AUTO_APPROVE: string;
 }
 
 export interface AuthUser {
