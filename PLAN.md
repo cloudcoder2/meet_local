@@ -72,7 +72,7 @@ Each phase ends with tests passing and a commit pushed.
 - [x] **Phase 4: realtime.** `RideRoom` Durable Object WebSockets (live location,
   status, chat), driver WebSocket to `DispatchHub`, ratings and payments on completion,
   driver earnings.
-- [ ] **Phase 5: Flutter foundation.** Project, theme and branding, API client,
+- [x] **Phase 5: Flutter foundation.** Project, theme and branding, API client,
   auth flow (phone + OTP), secure token storage, router, profile.
 - [ ] **Phase 6: Flutter rider flow.** Map home, place selection, fare estimates,
   request and searching, live tracking over WebSocket, trip completion, rating, history.
