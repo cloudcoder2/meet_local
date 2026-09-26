@@ -24,9 +24,12 @@
     { "binding": "KV", "id": "00000000000000000000000000000000" }
   ],
   "durable_objects": {
-    "bindings": [{ "name": "DISPATCH", "class_name": "DispatchHub" }]
+    "bindings": [
+      { "name": "DISPATCH", "class_name": "DispatchHub" },
+      { "name": "RIDE_ROOM", "class_name": "RideRoom" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DispatchHub"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DispatchHub", "RideRoom"] }],
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "cholo-media" }
   ]

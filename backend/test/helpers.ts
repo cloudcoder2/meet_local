@@ -98,3 +98,39 @@ export async function requestRide(token: string, vehicleClass: "bike" | "cng" | 
     body: { pickup: place(GULSHAN, "Gulshan 1, Dhaka"), dropoff: place(DHANMONDI, "Dhanmondi 27, Dhaka"), vehicle_class: vehicleClass },
   });
 }
+
+/** Opens a WebSocket to the API and collects its JSON messages. */
+export async function connect(path: string, token: string) {
+  const res = await exports.default.fetch(`https://api.cholo.test${path}${path.includes("?") ? "&" : "?"}token=${token}`, {
+    headers: { Upgrade: "websocket" },
+  });
+  const ws = res.webSocket;
+  if (!ws) throw new Error(`WebSocket upgrade failed: ${res.status} ${await res.text()}`);
+  ws.accept();
+  const messages: any[] = [];
+  const waiters: { type: string; resolve: (m: any) => void }[] = [];
+  let closed = false;
+  ws.addEventListener("message", (e) => {
+    const msg = JSON.parse(e.data as string);
+    const i = waiters.findIndex((w) => w.type === msg.type);
+    if (i >= 0) waiters.splice(i, 1)[0].resolve(msg);
+    else messages.push(msg);
+  });
+  ws.addEventListener("close", () => (closed = true));
+  return {
+    ws,
+    send: (msg: unknown) => ws.send(JSON.stringify(msg)),
+    /** Resolves with the next message of `type` (including one already received). */
+    next(type: string, timeoutMs = 2000): Promise<any> {
+      const i = messages.findIndex((m) => m.type === type);
+      if (i >= 0) return Promise.resolve(messages.splice(i, 1)[0]);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`timed out waiting for ${type}`)), timeoutMs);
+        waiters.push({ type, resolve: (m) => (clearTimeout(timer), resolve(m)) });
+      });
+    },
+    get closed() {
+      return closed;
+    },
+  };
+}

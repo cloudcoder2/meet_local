@@ -95,7 +95,7 @@ export async function transition(
     .first<RideRow>();
   if (!updated) throw conflict("Ride changed while updating; refresh and try again", "invalid_transition");
   await logRideEvent(env.DB, ride.id, to, actorId, eventData);
-  await publishRideUpdate(env, ride.id);
+  await publishRideUpdate(env, ride.id, to);
   return updated;
 }
 

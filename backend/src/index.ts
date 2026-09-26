@@ -24,4 +24,5 @@ app.route("/v1/rides", rides);
 app.route("/v1/admin", admin);
 
 export { DispatchHub } from "./do/dispatch";
+export { RideRoom } from "./do/ride-room";
 export default app;

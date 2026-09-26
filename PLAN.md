@@ -69,7 +69,7 @@ Each phase ends with tests passing and a commit pushed.
 - [x] **Phase 3: rides and dispatch.** Ride request/cancel, `DispatchHub` Durable
   Object (presence, matching, offers, timeouts), driver accept/decline, lifecycle
   transitions, ride history.
-- [ ] **Phase 4: realtime.** `RideRoom` Durable Object WebSockets (live location,
+- [x] **Phase 4: realtime.** `RideRoom` Durable Object WebSockets (live location,
   status, chat), driver WebSocket to `DispatchHub`, ratings and payments on completion,
   driver earnings.
 - [ ] **Phase 5: Flutter foundation.** Project, theme and branding, API client,

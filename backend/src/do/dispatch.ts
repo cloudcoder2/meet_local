@@ -2,6 +2,8 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../env";
 import { haversine, type LatLng } from "../lib/geo";
 import type { VehicleClass } from "../lib/pricing";
+import { publishRideUpdate } from "../lib/realtime";
+import { rideRoom } from "./ride-room";
 
 /** How long a driver has to answer an offer. */
 export const OFFER_TIMEOUT_MS = 15_000;
@@ -45,7 +47,7 @@ export interface Offer {
 
 export type AcceptResult = { ok: true } | { ok: false; reason: "no_offer" | "expired" };
 
-/** Messages pushed to drivers over their dispatch WebSocket (phase 4). */
+/** Messages pushed to drivers over their dispatch WebSocket. */
 export type DriverMessage = { type: "offer"; offer: Offer } | { type: "offer_cancelled"; rideId: string };
 
 /**
@@ -261,13 +263,67 @@ export class DispatchHub extends DurableObject<Env> {
     const res = await this.env.DB.prepare("UPDATE rides SET status = 'no_driver', cancelled_at = ? WHERE id = ? AND status = 'requested'").bind(ts, rideId).run();
     if (res.meta.changes) {
       await this.env.DB.prepare("INSERT INTO ride_events (ride_id, type, created_at) VALUES (?, 'no_driver', ?)").bind(rideId, ts).run();
-      const { publishRideUpdate } = await import("../lib/realtime");
-      await publishRideUpdate(this.env, rideId);
+      await publishRideUpdate(this.env, rideId, "no_driver");
     }
   }
 
-  /** Hook for pushing messages to a connected driver; implemented with WebSockets in phase 4. */
-  protected pushToDriver(_driverId: string, _msg: DriverMessage) {}
+  // ---- driver WebSockets ---------------------------------------------------
+
+  /** Accepts a driver's dispatch socket (the Worker has already authenticated them). */
+  async fetch(request: Request) {
+    if (request.headers.get("Upgrade") !== "websocket") return new Response("Expected WebSocket", { status: 426 });
+    const driverId = request.headers.get("X-Driver-Id")!;
+    // One socket per driver: a reconnect replaces the old one.
+    for (const old of this.ctx.getWebSockets(driverId)) old.close(1000, "replaced");
+    const pair = new WebSocketPair();
+    this.ctx.acceptWebSocket(pair[1], [driverId]);
+    const offer = await this.currentOffer(driverId);
+    const d = this.drivers.get(driverId);
+    this.sendTo(pair[1], { type: "status", online: !!d && this.isFresh(d), ride_id: d?.rideId ?? null });
+    if (offer) this.sendTo(pair[1], { type: "offer", offer });
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer) {
+    const [driverId] = this.ctx.getTags(ws);
+    let msg: Record<string, unknown>;
+    try {
+      msg = JSON.parse(typeof raw === "string" ? raw : new TextDecoder().decode(raw));
+    } catch {
+      return this.sendTo(ws, { type: "error", message: "Invalid JSON" });
+    }
+    if (msg.type === "ping") return this.sendTo(ws, { type: "pong" });
+    if (msg.type !== "location") return this.sendTo(ws, { type: "error", message: "Unknown message type" });
+    const { lat, lng, heading } = msg;
+    if (typeof lat !== "number" || typeof lng !== "number" || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return this.sendTo(ws, { type: "error", message: "lat and lng are required" });
+    }
+    const loc = { lat, lng, heading: typeof heading === "number" ? heading : null };
+    if (!(await this.updateLocation(driverId, loc))) return this.sendTo(ws, { type: "error", message: "You are offline; go online first" });
+    // Riders follow the driver through the ride's room.
+    const rideId = this.drivers.get(driverId)?.rideId;
+    if (rideId) await rideRoom(this.env, rideId).driverLocation(loc);
+  }
+
+  async webSocketClose(ws: WebSocket, code: number) {
+    try {
+      ws.close(code === 1005 ? 1000 : code, "closing");
+    } catch {
+      // Already closed.
+    }
+  }
+
+  private pushToDriver(driverId: string, msg: DriverMessage) {
+    for (const ws of this.ctx.getWebSockets(driverId)) this.sendTo(ws, msg);
+  }
+
+  private sendTo(ws: WebSocket, msg: DriverMessage | { type: "status"; online: boolean; ride_id: string | null } | { type: "pong" } | { type: "error"; message: string }) {
+    try {
+      ws.send(JSON.stringify(msg));
+    } catch {
+      // Socket went away.
+    }
+  }
 
   private async scheduleAlarm() {
     let next = Infinity;

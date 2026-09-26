@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { dispatchHub } from "../do/dispatch";
+import { rideRoom } from "../do/ride-room";
 import type { AppEnv, Env } from "../env";
 import { requireAuth } from "../lib/auth";
 import { ApiError, conflict, forbidden } from "../lib/errors";
+import { splitFare } from "../lib/pricing";
 import { loadPromo } from "../lib/promo";
 import { activeRideFor, getRideFor, logRideEvent, requireViewer, transition, type RideRow, type Viewer } from "../lib/rides";
 import { placeSchema, vehicleClassSchema } from "../lib/schemas";
@@ -50,7 +52,24 @@ async function serializeRide(env: Env, ride: RideRow, as: Viewer) {
     vehicle = v ? serializeVehicle(v) : null;
   }
 
-  return { ...base, viewer: as, driver: as === "rider" ? person : null, rider: as === "driver" ? person : null, vehicle };
+  const payment = await env.DB.prepare("SELECT amount, method, status, commission, driver_net FROM payments WHERE ride_id = ?")
+    .bind(ride.id)
+    .first<{ amount: number; method: string; status: string; commission: number; driver_net: number }>();
+  const myRating = await env.DB.prepare("SELECT stars FROM ratings WHERE ride_id = ? AND rater_id = ?")
+    .bind(ride.id, as === "rider" ? ride.rider_id : ride.driver_id)
+    .first<{ stars: number }>();
+
+  return {
+    ...base,
+    viewer: as,
+    driver: as === "rider" ? person : null,
+    rider: as === "driver" ? person : null,
+    vehicle,
+    payment: payment
+      ? { amount: payment.amount, method: payment.method, status: payment.status, ...(as === "driver" ? { commission: payment.commission, driver_net: payment.driver_net } : {}) }
+      : null,
+    my_rating: myRating?.stars ?? null,
+  };
 }
 
 export const rides = new Hono<AppEnv>();
@@ -125,6 +144,32 @@ rides.get("/active", async (c) => {
   const userId = c.get("user").id;
   const ride = await activeRideFor(c.env.DB, userId);
   return c.json({ ride: ride ? await serializeRide(c.env, ride, ride.rider_id === userId ? "rider" : "driver") : null });
+});
+
+rides.get("/:id/ws", async (c) => {
+  if (c.req.header("Upgrade") !== "websocket") throw new ApiError(426, "upgrade_required", "Expected a WebSocket upgrade");
+  const userId = c.get("user").id;
+  const { ride, as } = await getRideFor(c.env.DB, c.req.param("id"), userId);
+  const req = new Request(c.req.raw);
+  req.headers.set("X-Role", as);
+  req.headers.set("X-User-Id", userId);
+  return rideRoom(c.env, ride.id).fetch(req);
+});
+
+rides.post("/:id/rating", async (c) => {
+  const body = await parseJson(c, z.object({ stars: z.number().int().min(1).max(5), comment: z.string().trim().max(500).optional() }));
+  const userId = c.get("user").id;
+  const { ride, as } = await getRideFor(c.env.DB, c.req.param("id"), userId);
+  if (ride.status !== "completed") throw new ApiError(409, "ride_not_completed", "You can only rate completed rides");
+  const rateeId = as === "rider" ? ride.driver_id! : ride.rider_id;
+  const inserted = await c.env.DB.prepare(
+    "INSERT INTO ratings (ride_id, rater_id, ratee_id, stars, comment, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+  )
+    .bind(ride.id, userId, rateeId, body.stars, body.comment ?? null, now())
+    .run();
+  if (!inserted.meta.changes) throw conflict("You already rated this ride", "already_rated");
+  await c.env.DB.prepare("UPDATE users SET rating_sum = rating_sum + ?, rating_count = rating_count + 1 WHERE id = ?").bind(body.stars, rateeId).run();
+  return c.json({ ride: await serializeRide(c.env, ride, as) });
 });
 
 rides.get("/:id", async (c) => {
@@ -216,8 +261,18 @@ rides.post("/:id/complete", async (c) => {
   // Upfront pricing: the rider pays the quoted total.
   const total = ride.estimated_fare - ride.discount;
   const updated = await transition(c.env, ride, ["in_progress"], "completed", userId, { final_fare: total, completed_at: now() });
+  const { commission, driverNet } = splitFare(total);
+  const ts = now();
+  // Cash is collected by the driver at drop-off, so the payment is settled immediately.
   await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE drivers SET total_trips = total_trips + 1, updated_at = ? WHERE user_id = ?").bind(now(), userId),
+    c.env.DB.prepare(
+      "INSERT INTO payments (id, ride_id, amount, method, status, commission, driver_net, created_at, updated_at) VALUES (?, ?, ?, ?, 'paid', ?, ?, ?, ?)",
+    ).bind(newId(), ride.id, total, ride.payment_method, commission, driverNet, ts, ts),
+    c.env.DB.prepare("UPDATE drivers SET total_trips = total_trips + 1, total_earnings = total_earnings + ?, updated_at = ? WHERE user_id = ?").bind(
+      driverNet,
+      ts,
+      userId,
+    ),
     ...(ride.promo_code ? [c.env.DB.prepare("UPDATE promo_codes SET used_count = used_count + 1 WHERE code = ?").bind(ride.promo_code)] : []),
   ]);
   await dispatchHub(c.env, ride.city).releaseDriver(userId, ride.id);

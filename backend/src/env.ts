@@ -1,8 +1,10 @@
 import type { DispatchHub } from "./do/dispatch";
+import type { RideRoom } from "./do/ride-room";
 
 export interface Env {
   DB: D1Database;
   DISPATCH: DurableObjectNamespace<DispatchHub>;
+  RIDE_ROOM: DurableObjectNamespace<RideRoom>;
   KV: KVNamespace;
   MEDIA: R2Bucket;
   JWT_SECRET: string;

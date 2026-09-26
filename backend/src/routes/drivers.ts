@@ -241,6 +241,48 @@ export async function offerDetails(db: D1Database, offer: Offer, currency: strin
   };
 }
 
+drivers.get("/me/ws", async (c) => {
+  if (c.req.header("Upgrade") !== "websocket") throw new ApiError(426, "upgrade_required", "Expected a WebSocket upgrade");
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const req = new Request(c.req.raw);
+  req.headers.set("X-Driver-Id", driver.user_id);
+  return dispatchHub(c.env, driver.city).fetch(req);
+});
+
+/** Earnings for today, the last 7 days and the last 30 days, plus a daily breakdown. */
+drivers.get("/me/earnings", async (c) => {
+  const driver = await requireApprovedDriver(c.env.DB, c.get("user").id);
+  const tzOffsetMin = Number(c.req.query("tz_offset_min") ?? 360); // Asia/Dhaka is UTC+6.
+  const day = 86_400_000;
+  const offset = tzOffsetMin * 60_000;
+  const startOfToday = Math.floor((now() + offset) / day) * day - offset;
+  const since = startOfToday - 29 * day;
+  const { results } = await c.env.DB.prepare(
+    `SELECT r.completed_at AS at, p.amount, p.commission, p.driver_net FROM payments p JOIN rides r ON r.id = p.ride_id
+     WHERE r.driver_id = ? AND r.completed_at >= ? ORDER BY r.completed_at`,
+  )
+    .bind(driver.user_id, since)
+    .all<{ at: number; amount: number; commission: number; driver_net: number }>();
+
+  const sum = (from: number) => {
+    const rows = results.filter((r) => r.at >= from);
+    return { trips: rows.length, gross: rows.reduce((a, r) => a + r.amount, 0), commission: rows.reduce((a, r) => a + r.commission, 0), net: rows.reduce((a, r) => a + r.driver_net, 0) };
+  };
+  const daily = Array.from({ length: 7 }, (_, i) => {
+    const from = startOfToday - (6 - i) * day;
+    const rows = results.filter((r) => r.at >= from && r.at < from + day);
+    return { date: new Date(from + offset).toISOString().slice(0, 10), trips: rows.length, net: rows.reduce((a, r) => a + r.driver_net, 0) };
+  });
+  return c.json({
+    currency: c.env.CURRENCY,
+    today: sum(startOfToday),
+    week: sum(startOfToday - 6 * day),
+    month: sum(since),
+    daily,
+    lifetime: { trips: driver.total_trips, net: driver.total_earnings },
+  });
+});
+
 /** Free drivers near a point, for the rider's home map. */
 drivers.get("/nearby", async (c) => {
   const q = latLngSchema.parse({ lat: Number(c.req.query("lat")), lng: Number(c.req.query("lng")) });
