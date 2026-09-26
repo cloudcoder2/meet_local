@@ -76,7 +76,7 @@ Each phase ends with tests passing and a commit pushed.
   auth flow (phone + OTP), secure token storage, router, profile.
 - [x] **Phase 6: Flutter rider flow.** Map home, place selection, fare estimates,
   request and searching, live tracking over WebSocket, trip completion, rating, history.
-- [ ] **Phase 7: Flutter driver flow.** Onboarding, online toggle with location
+- [x] **Phase 7: Flutter driver flow.** Onboarding, online toggle with location
   streaming, offer dialog, trip controls, earnings.
 - [ ] **Phase 8: hardening and docs.** Rate limiting, input edge cases, CI workflow
   (backend tests + `flutter analyze` + `flutter test`), deployment guide.

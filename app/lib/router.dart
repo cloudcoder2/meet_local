@@ -11,6 +11,8 @@ import 'features/auth/splash_screen.dart';
 import 'features/home/home_screen.dart';
 import 'data/models.dart';
 import 'features/booking/book_screen.dart';
+import 'features/driver/driver_home_screen.dart';
+import 'features/driver/earnings_screen.dart';
 import 'features/places/map_picker_screen.dart';
 import 'features/places/place_search_screen.dart';
 import 'features/places/saved_places_screen.dart';
@@ -54,6 +56,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/ride', builder: (_, _) => const RideScreen()),
       GoRoute(path: '/trips', builder: (_, _) => const TripsScreen()),
       GoRoute(path: '/places', builder: (_, _) => const SavedPlacesScreen()),
+      GoRoute(path: '/driver', builder: (_, _) => const DriverHomeScreen()),
+      GoRoute(path: '/driver/earnings', builder: (_, _) => const EarningsScreen()),
+      GoRoute(path: '/driver/trips', builder: (_, _) => const TripsScreen(asDriver: true)),
     ],
   );
 });

@@ -7,6 +7,7 @@ import '../../core/format.dart';
 import '../../data/models.dart';
 import '../../widgets/cholo_map.dart';
 import '../../widgets/feedback.dart';
+import '../driver/driver_trip_panel.dart';
 import 'chat_sheet.dart';
 import 'ride_controller.dart';
 
@@ -56,7 +57,7 @@ class RideScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: AnimatedSize(
                 duration: const Duration(milliseconds: 200),
-                child: _RiderPanel(ride: ride),
+                child: ride.isDriverView ? DriverTripPanel(ride: ride) : _RiderPanel(ride: ride),
               ),
             ),
           ),
@@ -121,7 +122,7 @@ class _RiderPanel extends ConsumerWidget {
           OutlinedButton.icon(onPressed: () => showChatSheet(context), icon: const Icon(Icons.chat_bubble_outline), label: const Text('Chat')),
         ]);
       case RideStatus.completed:
-        children.add(_Receipt(ride: ride));
+        children.add(RideReceipt(ride: ride));
       case RideStatus.cancelled || RideStatus.noDriver:
         children.addAll([
           Text(ride.status == RideStatus.noDriver
@@ -211,15 +212,15 @@ class DriverCard extends StatelessWidget {
   }
 }
 
-class _Receipt extends ConsumerStatefulWidget {
-  const _Receipt({required this.ride});
+class RideReceipt extends ConsumerStatefulWidget {
+  const RideReceipt({super.key, required this.ride});
   final Ride ride;
 
   @override
-  ConsumerState<_Receipt> createState() => _ReceiptState();
+  ConsumerState<RideReceipt> createState() => _RideReceiptState();
 }
 
-class _ReceiptState extends ConsumerState<_Receipt> {
+class _RideReceiptState extends ConsumerState<RideReceipt> {
   int _stars = 0;
   final _comment = TextEditingController();
   bool _sending = false;

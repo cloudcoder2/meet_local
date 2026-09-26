@@ -26,7 +26,7 @@ Future<void> settle(WidgetTester tester) async {
 
 void main() {
   testWidgets('rider searches, books, rides and rates', (tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.physicalSize = const Size(900, 1850);
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
 
