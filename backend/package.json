@@ -1,0 +1,28 @@
+{
+  "name": "cholo-api",
+  "version": "1.0.0",
+  "description": "Cholo ride-sharing API on Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply cholo-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cholo-db --remote"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "hono": "^4.13.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260925.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.141.0"
+  },
+  "private": true,
+  "type": "module"
+}
